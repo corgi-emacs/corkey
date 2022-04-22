@@ -31,6 +31,7 @@
 
 (require 'use-package)
 (require 'seq)
+(require 'filenotify)
 
 (use-package evil :init (setq evil-want-keybinding nil))
 (use-package which-key)
@@ -38,6 +39,7 @@
 
 ;; silence byte compiler warnings: function might not be defined at runtime
 (require 'evil)
+(require 'evil-core)
 (require 'which-key)
 (require 'a)
 
@@ -383,7 +385,7 @@ files."
                (when path
                  (file-notify-add-watch
                   path '(change)
-                  (lambda (e)
+                  (lambda (_e)
                     (let ((find-file-suppress-same-file-warnings t))
                       (corkey/reload key-files signal-files)))))))
            (append key-files signal-files)))))
