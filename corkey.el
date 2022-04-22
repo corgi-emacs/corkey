@@ -36,6 +36,11 @@
 (use-package which-key)
 (use-package a)
 
+;; silence byte compiler warnings: function might not be defined at runtime
+(require 'evil)
+(require 'which-key)
+(require 'a)
+
 (defun corkey--ancestor-modes (mode)
   "List of the given mode, plus any of its ancestors
 
@@ -44,6 +49,10 @@ By traversing the 'derived-mode-parent symbol property."
         (let ((derived-mode (get mode 'derived-mode-parent)))
           (when derived-mode
             (corkey--ancestor-modes derived-mode)))))
+
+(defvar-local corkey-local-mode t
+  "Non-nil if Corkey-Local mode is enabled.
+Use the command `corkey-local-mode' to change this variable.")
 
 (defun corkey--set-shadow-mode-vars ()
   "Create shadow-mode variables based on the major-mode
@@ -55,34 +64,46 @@ and assign key bindings that are specific to a given major mode
 to this minor mode instead, so that we don't mutate the
 major-mode keymap. This way the bindings can easily be disabled
 when corkey-mode is switched off."
+  (when corkey-local-mode
+    (seq-doseq (mode (corkey--ancestor-modes major-mode))
+      (let ((shadow-mode-var (intern (concat "corkey--" (symbol-name mode)))))
+        (make-variable-buffer-local shadow-mode-var)
+        (set shadow-mode-var corkey-local-mode)))))
+
+(defun corkey--unset-shadow-mode-vars ()
+  "Remove the local variable bindings introduced by
+`corkey--set-shadow-mode-vars'"
   (seq-doseq (mode (corkey--ancestor-modes major-mode))
-    (let ((shadow-mode-var (intern (concat "corkey--" (symbol-name mode)))))
-      (make-variable-buffer-local shadow-mode-var)
-      (set shadow-mode-var corkey-local-mode))))
+    (kill-local-variable (intern (concat "corkey--" (symbol-name mode))))))
 
 (define-minor-mode corkey-local-mode
   "Minor mode providing corkey bindings"
   :lighter ""
   :init-value t ;; enable in fundamental-mode buffers
   :keymap (make-sparse-keymap)
+  :group 'corgi
   ;; To have bindings that are specific to a major mode, without actually
   ;; changing that major-mode's mode-map, we fake a minor mode (really just a
   ;; variable) that is true/on when the given major-mode is enabled (it shadows
   ;; the major mode, hence the name). When loading key bindings into evil we
   ;; associate them with this shadow minor mode. This way the corkey bindings
   ;; remain isolated and can easily be toggled.
-  (corkey--set-shadow-mode-vars))
-
-(add-hook 'after-change-major-mode-hook #'corkey--set-shadow-mode-vars)
+  (if corkey-local-mode
+      (corkey--set-shadow-mode-vars)
+    (corkey--unset-shadow-mode-vars)))
 
 (defun corkey-initialize ()
   "Initialize the minor mode, unless we're in the minibuffer"
   (unless (and (minibufferp) (not evil-want-minibuffer))
-    (corkey-local-mode)))
+    (corkey-local-mode 1)))
 
 (define-globalized-minor-mode corkey-mode
   corkey-local-mode
-  corkey-initialize)
+  corkey-initialize
+  :group 'corgi
+  (if corgi-mode
+      (add-hook 'after-change-major-mode-hook #'corkey--set-shadow-mode-vars)
+    (remove-hook 'after-change-major-mode-hook #'corkey--set-shadow-mode-vars)))
 
 (defun corkey/-flatten-bindings (state prefix bindings)
   "Takes nested binding definitions as found in corkey-keys.el, and
@@ -179,10 +200,10 @@ When the optional DESCRIPTION is provided then we set up
       (define-key corkey-local-mode-map (kbd keys) target))
      ((eq 'global state)
       (define-key
-       (symbol-value
-        (intern (concat (symbol-name mode-var) "-map")))
-       (kbd keys)
-       target))
+        (symbol-value
+         (intern (concat (symbol-name mode-var) "-map")))
+        (kbd keys)
+        target))
      ((eq 'default mode-sym)
       (evil-define-minor-mode-key state 'corkey-local-mode (kbd keys) target))
      (t
