@@ -101,7 +101,7 @@ when corkey-mode is switched off."
   corkey-local-mode
   corkey-initialize
   :group 'corgi
-  (if corgi-mode
+  (if corkey-mode
       (add-hook 'after-change-major-mode-hook #'corkey--set-shadow-mode-vars)
     (remove-hook 'after-change-major-mode-hook #'corkey--set-shadow-mode-vars)))
 
