@@ -277,9 +277,10 @@ which-key replacements where available."
   "Slurp a file and read its contents as Elisp forms"
   (when file-name
     (with-current-buffer (find-file-noselect file-name)
-      (auto-revert-mode 1)
-      (goto-char (point-min))
-      (read (current-buffer)))))
+      (save-excursion
+        (auto-revert-mode 1)
+        (goto-char (point-min))
+        (read (current-buffer))))))
 
 (defun corkey/-locate-file (fname)
   "Look up a Corkey binding or signal file. Should be either a
