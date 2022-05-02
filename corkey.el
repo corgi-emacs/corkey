@@ -297,8 +297,8 @@ emacs's library path.
    ((symbolp fname)
     (corkey/-locate-file (concat (symbol-name fname) ".el")))
    ((file-exists-p (expand-file-name fname user-emacs-directory))
-    (expand-file-name fname user-emacs-directory))
-   (t (locate-library fname))))
+    (file-truename (expand-file-name fname user-emacs-directory)))
+   (t (file-truename (locate-library fname)))))
 
 (defun corkey/-load-bindings (binding-files)
   "Load one or more BINDING_FILES, a list of symbols or relative
