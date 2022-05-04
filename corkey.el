@@ -275,12 +275,15 @@ which-key replacements where available."
 
 (defun corkey/-read-file (file-name)
   "Slurp a file and read its contents as Elisp forms"
-  (when file-name
-    (with-current-buffer (find-file-noselect file-name)
-      (save-excursion
-        (auto-revert-mode 1)
-        (goto-char (point-min))
-        (read (current-buffer))))))
+  (condition-case err
+      (when file-name
+        (with-current-buffer (find-file-noselect file-name)
+          (save-excursion
+            (auto-revert-mode 1)
+            (goto-char (point-min))
+            (read (current-buffer)))))
+    (error
+     (error "Failed to parse %s: %s" file-name (error-message-string err)))))
 
 (defun corkey/-locate-file (fname)
   "Look up a Corkey binding or signal file. Should be either a
@@ -337,12 +340,9 @@ merged and flattened list of signals defined therein."
                                modes))))
          evil-minor-mode-keymaps-alist)))
 
-(defun corkey/install-bindings (&optional key-files signal-files)
-  "Install Corkey bindings into the `corkey-local-mode-map' and
-various mode-specific shadow mode-maps. Takes optionally a
-list (or single symbol/string) of key bindign files and signal
-files."
-  (interactive)
+(defun corkey/-load-binding-files (&optional key-files signal-files)
+  "Load the key bindings and signals form the given list of files."
+
   (let* ((key-files (or key-files '(corgi-keys user-keys)))
          (signal-files (or signal-files '(corgi-signals user-signals)))
 
@@ -353,15 +353,26 @@ files."
                            signal-files
                          (list signal-files))))
 
-    (corkey/setup-keymaps
+    (list
      (corkey/-load-bindings key-files)
-     (corkey/-load-signals signal-files))
-    (evil-normalize-keymaps)))
+     (corkey/-load-signals signal-files))))
+
+(defun corkey/install-bindings (bindings)
+  "Install Corkey bindings into the `corkey-local-mode-map' and
+various mode-specific shadow mode-maps. Takes optionally a
+list (or single symbol/string) of key bindigs."
+  (corkey/setup-keymaps
+   (car bindings)
+   (car (cdr bindings)))
+  (evil-normalize-keymaps))
 
 (defun corkey/reload (&optional key-files signal-files)
-  "Remove existing Corkey bindings, then load the bindings."
-  (corkey/remove-bindings)
-  (corkey/install-bindings key-files signal-files))
+  "Parses the bindings, removes the existing bindinds and then
+install the bindings."
+  (interactive)
+  (let* ((bindings (corkey/-load-binding-files key-files signal-files)))
+    (corkey/remove-bindings)
+    (corkey/install-bindings bindings)))
 
 (defvar corkey/-watches nil)
 
