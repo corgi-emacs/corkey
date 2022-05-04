@@ -12,3 +12,4 @@
 - Resolve symlinks when loading/watching key/signal files, this ensures that
   changes are picked up by the watcher, even if the files are symlinks, e.g. in
   straight build directories
+- Provide better error messages when parsing files
