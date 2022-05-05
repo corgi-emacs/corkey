@@ -207,13 +207,13 @@ When the optional DESCRIPTION is provided then we set up
         (kbd keys)
         target))
      ((eq 'default mode-sym)
-      (evil-define-minor-mode-key state 'corkey-local-mode (kbd keys) target))
+      (evil-define-minor-mode-key state 'corkey-local-mode (kbd keys) (if description
+                                                                          (cons description target)
+                                                                        target)))
      (t
-      (evil-define-minor-mode-key state mode-var (kbd keys) target))))
-  (when description
-    (if (eq 'default mode-sym)
-        (which-key-add-key-based-replacements keys description)
-      (which-key-add-major-mode-key-based-replacements mode-sym keys description))))
+      (evil-define-minor-mode-key state mode-var (kbd keys) (if description
+                                                                (cons description target)
+                                                              target))))))
 
 (defun corgi/fix-keymap-precedence ()
   "Move `corkey-local-mode' bindings to the end of
