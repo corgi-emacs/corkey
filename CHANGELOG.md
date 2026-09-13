@@ -1,6 +1,18 @@
-# main
+# 2026
 
 ## Added
+
+- `corkey-key-files` / `corkey-signal-files` - variables of which key/signals to
+  load by default (when not explicitly passed in)
+- `corkey-register-key-file` / `corkey-register-signal-file` - functions which
+  add to the above variables, meant to be used in an `(eval-after-load 'corkey)`
+  by packages which provide additional signal or key overrides 
+
+## Changed
+
+- Drop the `a.el` dependency
+
+# 2022
 
 ## Fixed
 

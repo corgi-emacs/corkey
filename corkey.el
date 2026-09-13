@@ -3,7 +3,7 @@
 ;; Copyright (C) 2020-2021 Gaiwan GmbH
 ;;
 ;; Author: Arne Brasseur <arne@gaiwan.co>
-;; Package-Requires: ((use-package) (a) (evil) (which-key))
+;; Package-Requires: ((use-package) (evil) (which-key))
 ;;
 
 ;;; Commentary:
@@ -35,13 +35,41 @@
 
 (use-package evil :init (setq evil-want-keybinding nil))
 (use-package which-key)
-(use-package a)
 
 ;; silence byte compiler warnings: function might not be defined at runtime
 (require 'evil)
 (require 'evil-core)
 (require 'which-key)
-(require 'a)
+
+(defvar corkey-key-files
+  '(corgi-keys user-keys)
+  "Default key files to load")
+
+(defvar corkey-signal-files
+  '(corgi-signals user-signals)
+  "Default signal files to load")
+
+(defun corkey-register-key-file (sym)
+  "Add a symbol to the list of default key files to resolve and load.
+Idempotent. Will insert at the end, but before `user-keys' if present,
+so that `user-keys' always act as a final override. Can be used in
+packages that provide additional key layers."
+  (when (not (memq sym corkey-key-files))
+    (setq corkey-key-files 
+          (if (eq 'user-keys (car (last corkey-key-files)))
+              (append (butlast corkey-key-files) (list sym 'user-keys))
+            (append corkey-key-files (list sym))))))
+
+(defun corkey-register-signal-file (sym)
+  "Add a symbol to the list of default signal files to resolve and load.
+Idempotent. Will insert at the end, but before `user-signals' if present,
+so that `user-signals' always act as a final override. Can be used in
+packages that provide additional signal layers."
+  (when (not (memq sym corkey-signal-files))
+    (setq corkey-signal-files 
+          (if (eq 'user-signals (car (last corkey-signal-files)))
+              (append (butlast corkey-signal-files) (list sym 'user-signals))
+            (append corkey-signal-files (list sym))))))
 
 (defun corkey--ancestor-modes (mode)
   "List of the given mode, plus any of its ancestors
@@ -145,7 +173,9 @@ returns a flat list of (state binding description signal-or-command), e.g.
            (mapping (cadr mode-spec)))
        (seq-reduce
         (lambda (acc signal-command)
-          (a-assoc-in acc (list (car signal-command) mode) (cadr signal-command)))
+          (setf (alist-get mode (alist-get (car signal-command) acc))
+                (cadr signal-command))
+          acc)
         (seq-partition mapping 2)
         acc)))
    signals
@@ -301,7 +331,10 @@ emacs's library path.
     (corkey/-locate-file (concat (symbol-name fname) ".el")))
    ((file-exists-p (expand-file-name fname user-emacs-directory))
     (file-truename (expand-file-name fname user-emacs-directory)))
-   (t (file-truename (locate-library fname)))))
+   (t
+    (let ((path (locate-library fname)))
+      (when path
+        (file-truename path))))))
 
 (defun corkey/-load-bindings (binding-files)
   "Load one or more BINDING_FILES, a list of symbols or relative
@@ -341,10 +374,11 @@ merged and flattened list of signals defined therein."
          evil-minor-mode-keymaps-alist)))
 
 (defun corkey/-load-binding-files (&optional key-files signal-files)
-  "Load the key bindings and signals form the given list of files."
-
-  (let* ((key-files (or key-files '(corgi-keys user-keys)))
-         (signal-files (or signal-files '(corgi-signals user-signals)))
+  "Load the key bindings and signals form the given list of files. When
+called without arguments will use `corkey-key-files' /
+`corkey-signal-files' as defaults."
+  (let* ((key-files (or key-files corkey-key-files))
+         (signal-files (or signal-files corkey-signal-files))
 
          (key-files (if (listp key-files)
                         key-files
@@ -377,10 +411,12 @@ install the bindings."
 (defvar corkey/-watches nil)
 
 (defun corkey/load-and-watch (&optional key-files signal-files)
-  "Load the given key/signal files, and auto-reload them when they change."
+  "Load the given key/signal files, and auto-reload them when they change.
+When called without arguments will use `corkey-key-files' /
+`corkey-signal-files' as defaults."
   (interactive)
-  (let* ((key-files (or key-files '(corgi-keys user-keys)))
-         (signal-files (or signal-files '(corgi-signals user-signals)))
+  (let* ((key-files (or key-files corkey-key-files))
+         (signal-files (or signal-files corkey-signal-files))
          (key-files (if (listp key-files) key-files (list key-files)))
          (signal-files (if (listp signal-files) signal-files (list signal-files))))
     (let ((find-file-suppress-same-file-warnings t))
@@ -404,9 +440,4 @@ install the bindings."
 
 (provide 'corkey)
 
-
 ;;; corkey.el ends here
-
-;; (corkey/-load-bindings
-;;  (list (corkey/-locate-file 'corgi-keys)
-;;        (corkey/-locate-file 'user-keys)))
